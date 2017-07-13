@@ -2,16 +2,28 @@
 #define DEVICES_TIMER_H
 
 #include <round.h>
+#include <list.h>
 #include <stdint.h>
 
 /* Number of timer interrupts per second. */
 #define TIMER_FREQ 100
+
+struct sleep_time_node
+{
+	int64_t sleep_end_ticks;
+	struct thread *t;
+	struct list_elem elem;
+};
 
 void timer_init (void);
 void timer_calibrate (void);
 
 int64_t timer_ticks (void);
 int64_t timer_elapsed (int64_t);
+
+/*my code*/
+void sleep_wake_up(void);
+bool early_time(const struct list_elem *a,const struct list_elem *b,void *aux);
 
 /* Sleep and yield the CPU to other threads. */
 void timer_sleep (int64_t ticks);

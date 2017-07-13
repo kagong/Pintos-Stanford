@@ -19,7 +19,7 @@
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
-
+static struct list sleep_list;
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -37,6 +37,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init(&sleep_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -86,15 +87,61 @@ timer_elapsed (int64_t then)
 
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
+void 
+sleep_wake_up(void)
+{
+	struct list_elem *temp = list_begin(&sleep_list);
+	struct sleep_time_node *result = NULL;
+
+	while(temp != list_tail(&sleep_list))
+	{
+		result = list_entry(temp ,struct sleep_time_node ,elem);
+		if( result->sleep_end_ticks < timer_ticks() )
+		{
+			list_pop_front(&sleep_list);
+			thread_unblock(result->t);
+
+			temp = list_begin(&sleep_list);
+
+		}
+		else
+			break;
+	}
+	
+
+}
+bool early_time(const struct list_elem *a,const struct list_elem *b,void *aux)//fun truee is break
+{
+	struct sleep_time_node* A = list_entry(a, struct sleep_time_node , elem);
+	struct sleep_time_node* B = list_entry(b, struct sleep_time_node , elem);
+	if( A -> sleep_end_ticks == B -> sleep_end_ticks )
+	{
+		if( (A -> t -> priority) > (B -> t -> priority))
+			return false;
+		else
+			return true;
+	}
+	else if (A -> sleep_end_ticks < B-> sleep_end_ticks)
+		return true;
+	else
+		return false;
+
+}
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
+  int64_t end = timer_ticks() + ticks;
+  struct sleep_time_node tn;
+  enum intr_level old_level = intr_disable ();
 
-  ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
-  /*my_code*/
+  tn.sleep_end_ticks = end;
+  tn.t = thread_current();
+
+  list_insert_ordered(&sleep_list,&tn.elem,early_time,NULL);
+
+  thread_block();
+
+  intr_set_level (old_level);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -172,6 +219,7 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
+  sleep_wake_up();
   thread_tick ();
 }
 
