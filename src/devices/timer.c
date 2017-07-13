@@ -116,7 +116,7 @@ bool early_time(const struct list_elem *a,const struct list_elem *b,void *aux)//
 	struct sleep_time_node* B = list_entry(b, struct sleep_time_node , elem);
 	if( A -> sleep_end_ticks == B -> sleep_end_ticks )
 	{
-		if( (A -> t -> priority) > (B -> t -> priority))
+		if( (A -> t -> priority) < (B -> t -> priority))
 			return false;
 		else
 			return true;
