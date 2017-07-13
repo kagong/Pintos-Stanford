@@ -71,6 +71,9 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+/*user code*/
+bool priority_cmp(const struct list_elem *a,const struct list_elem *b,void *aux);
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -240,13 +243,19 @@ void
 thread_unblock (struct thread *t) 
 {
   enum intr_level old_level;
-
   ASSERT (is_thread (t));
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
+  if(thread_current() -> priority < t -> priority)
+  {
+	  list_push_front (&ready_list, &t->elem);
+	  thread_yield();
+  }
+  else
+	  list_insert_ordered(&ready_list,&t->elem,priority_cmp,NULL);
+
   intr_set_level (old_level);
 }
 
@@ -316,7 +325,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+	  list_insert_ordered(&ready_list,&cur->elem,priority_cmp,NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -340,10 +349,20 @@ thread_foreach (thread_action_func *func, void *aux)
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
+bool priority_cmp(const struct list_elem *a,const struct list_elem *b,void *aux)
+{
+	struct thread *th_a = list_entry(a ,struct thread ,elem);
+	struct thread *th_b = list_entry(b ,struct thread ,elem);
+	if(th_a -> priority > th_b -> priority)
+		return true;
+	else
+		return false;
+}
 void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  list_sort(&ready_list,priority_cmp,NULL);
 }
 
 /* Returns the current thread's priority. */
