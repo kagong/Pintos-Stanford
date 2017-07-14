@@ -248,7 +248,7 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   t->status = THREAD_READY;
-  if(thread_current() -> priority < t -> priority)
+  if(thread_current() -> priority < t -> priority && strncmp(thread_name(),"idle",4) != 0) 
   {
 	  list_push_front (&ready_list, &t->elem);
 	  thread_yield();
@@ -362,7 +362,6 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
-  list_sort(&ready_list,priority_cmp,NULL);
 }
 
 /* Returns the current thread's priority. */
@@ -417,6 +416,7 @@ idle (void *idle_started_ UNUSED)
 {
   struct semaphore *idle_started = idle_started_;
   idle_thread = thread_current ();
+  printf("fuck you \n");
   sema_up (idle_started);
 
   for (;;) 
