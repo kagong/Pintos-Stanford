@@ -364,9 +364,15 @@ thread_set_priority (int new_priority)
 {
 
 	int prev=thread_current()->priority;
-	thread_current ()->priority = new_priority;
-	if( prev > new_priority )
-		thread_yield();
+	if(thread_current()->lock_donated == NULL)
+	{
+		thread_current ()->priority = new_priority;
+		if( prev > new_priority )
+			thread_yield();
+	}
+	else
+		thread_current()->before_donate_pri = new_priority;
+
 }
 
 /* Returns the current thread's priority. */
@@ -490,9 +496,10 @@ init_thread (struct thread *t, const char *name, int priority)
 	t->status = THREAD_BLOCKED;
 	strlcpy (t->name, name, sizeof t->name);
 	t->stack = (uint8_t *) t + PGSIZE;
-	list_init(&t->donate_list);
+	list_init(&t->donated_list);
 	t->priority = priority;
-	t->donated_thread=NULL;
+	t->lock_owner = NULL;
+	t->lock_donated = NULL;
 	t->magic = THREAD_MAGIC;
 	list_push_back (&all_list, &t->allelem);
 }

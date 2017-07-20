@@ -20,15 +20,15 @@ void sema_self_test (void);
 /* Lock. */
 struct lock 
 {
-	int pri_temp;
 	struct list_elem elem; 
 	struct thread *holder;      /* Thread holding lock (for debugging). */
 	struct semaphore semaphore; /* Binary semaphore controlling access. */
 };
 
 void lock_init (struct lock *);
-static void pri_donate(struct lock *lock);
-static void pri_restore(struct lock *lock);
+bool lock_cmp(const struct list_elem *a,const struct list_elem *b,void *aux);
+void pri_donate(struct lock *lock);
+void pri_restore(struct lock *lock);
 void lock_acquire (struct lock *);
 bool lock_try_acquire (struct lock *);
 void lock_release (struct lock *);
