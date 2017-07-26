@@ -118,6 +118,7 @@ sema_up (struct semaphore *sema)
 	{
 		list_sort(&sema->waiters,priority_cmp,NULL);
 		thread_unblock (list_entry (list_pop_front (&sema->waiters),struct thread, elem));
+		thread_yield();
 	}
 	intr_set_level (old_level);
 }
@@ -183,7 +184,7 @@ lock_init (struct lock *lock)
 	lock -> elem .prev = NULL;
 	sema_init (&lock->semaphore, 1);
 }
-bool lock_cmp(const struct list_elem *a,const struct list_elem *b,void *aux)
+bool lock_cmp(const struct list_elem *a,const struct list_elem *b,void *aux UNUSED)
 {
 	struct thread *th_a = list_entry(list_front(&list_entry(a,struct lock,elem)->semaphore.waiters),struct thread,elem);
 	struct thread *th_b = list_entry(list_front(&list_entry(b,struct lock,elem)->semaphore.waiters),struct thread,elem);
@@ -245,7 +246,7 @@ lock_acquire (struct lock *lock)
 
 	old_level = intr_disable();
 
-	if(lock->holder != NULL)
+	if(!thread_mlfqs && lock->holder != NULL)
 	{
 		thread_current()->lock_owner = lock;
 		if(lock->elem.next == NULL)
@@ -258,10 +259,10 @@ lock_acquire (struct lock *lock)
 	lock->holder = thread_current ();
 
 
-	if(list_empty(&lock->holder->donated_list))
+	if(!thread_mlfqs && list_empty(&lock->holder->donated_list))
 		lock->holder->before_donate_pri=lock->holder->priority;
 
-	if(!list_empty(&lock->semaphore.waiters))
+	if(!thread_mlfqs && !list_empty(&lock->semaphore.waiters))
 		list_push_front(&lock->holder->donated_list,&lock->elem);
 
 	thread_current()->lock_owner = NULL;
@@ -288,10 +289,10 @@ lock_try_acquire (struct lock *lock)
 	{
 		lock->holder = thread_current ();
 
-		if(list_empty(&lock->holder->donated_list))
+		if(!thread_mlfqs&&list_empty(&lock->holder->donated_list))
 			lock->holder->before_donate_pri=lock->holder->priority;
 
-		if(!list_empty(&lock->semaphore.waiters))
+		if(!thread_mlfqs && !list_empty(&lock->semaphore.waiters))
 			list_push_front(&lock->holder->donated_list,&lock->elem);
 
 		thread_current()->lock_owner = NULL;
@@ -314,7 +315,7 @@ lock_release (struct lock *lock)
 
 
 	lock->holder = NULL;
-	if(!list_empty(&lock->semaphore.waiters))
+	if(!thread_mlfqs && !list_empty(&lock->semaphore.waiters))
 		pri_restore(lock);
 	sema_up (&lock->semaphore);
 	intr_set_level(old_level);
@@ -368,7 +369,7 @@ cond_init (struct condition *cond)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
-bool cond_cmp(const struct list_elem *a,const struct list_elem *b,void *aux)
+bool cond_cmp(const struct list_elem *a,const struct list_elem *b,void *aux UNUSED)
 {
 	struct semaphore_elem *A = list_entry(a,struct semaphore_elem,elem);
 	struct semaphore_elem *B = list_entry(b,struct semaphore_elem,elem);
