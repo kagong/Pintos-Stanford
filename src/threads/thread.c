@@ -661,6 +661,20 @@ allocate_tid (void)
 
 	return tid;
 }
+bool find_tid(tid_t target)
+{
+	struct thread *t = thread_current();
+	struct list_elem *temp=NULL;
+
+	for(temp = list_front(&all_list);temp != list_end(&all_list) ; temp = list_next(temp))
+	{
+		t = list_entry(temp,struct thread,allelem);
+		if(t->tid == target)
+			return true;
+	}
+	return false;
+
+}
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */

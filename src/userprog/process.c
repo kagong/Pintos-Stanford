@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -53,7 +54,7 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-
+  
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -65,7 +66,6 @@ start_process (void *file_name_)
   palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
-
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -86,9 +86,11 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  return -1;
+	while(find_tid(child_tid))
+		timer_sleep(60);
+	return -1;
 }
 
 /* Free the current process's resources. */
@@ -213,7 +215,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   struct file *file = NULL;
   off_t file_ofs;
   bool success = false;
-  int i;
+  int i,size;
+  char *save_ptr = NULL,*double_space=strstr(file_name,"  ");
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -222,6 +225,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+  
+  while(double_space){
+	 size = strlen(double_space);
+	 memmove(double_space,double_space+1,size);
+	 double_space= strstr(file_name,"  ");
+  }
+  
+  size=strlen(file_name)+1;
+  strtok_r(file_name," ",&save_ptr);
   file = filesys_open (file_name);
   if (file == NULL) 
     {
@@ -304,7 +316,42 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
+  //---------------------
+  
+  char *start_ptr = NULL;
+  int token_cnt=0;
+  *esp -= size;
 
+  if(size)
+	  ++token_cnt;
+  
+  while(strtok_r(NULL," ",&save_ptr))
+		  token_cnt++;
+  memcpy(*esp,file_name,size);
+  start_ptr = *esp;
+  *esp -= 5;
+
+  memset(*esp,0,5);
+  *esp -= token_cnt*4;
+
+  for(i=token_cnt;i >0 ; i--)
+  {
+  	*(int *)*esp = start_ptr;
+	start_ptr = memchr(start_ptr,0,size) + 1;
+	*esp += 4;
+  }
+  *esp -= token_cnt*4;
+  *esp -= 4;
+
+  *(int*)*esp = *esp + 4;
+  *esp -= 4;
+
+  *(int*)*esp = token_cnt;
+  *esp -= 4;
+  *((int*)*esp) = 0;
+
+  //hex_dump(*esp,*esp,48,true);
+  //---------------------
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 

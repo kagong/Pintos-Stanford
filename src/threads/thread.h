@@ -153,4 +153,5 @@ int thread_get_load_avg (void);
 void thread_recalculate(void);
 void update_recent_cpu_and_load_avg(void);
 
+bool find_tid(tid_t target);
 #endif /* threads/thread.h */
