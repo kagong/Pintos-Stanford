@@ -1,6 +1,7 @@
 #include "threads/thread.h"
 #include <debug.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "filesys/file.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -298,8 +300,22 @@ thread_tid (void)
 thread_exit (void) 
 {
 	ASSERT (!intr_context ());
+	struct thread *t = thread_current();
+	thread_set_priority(PRI_MAX);
 
 #ifdef USERPROG
+	//if thread is kernel thread process_info free
+	/*
+	if(t->pagedir == NULL)
+		free_pinfo();
+	else
+	{
+		sema_up(pinfo_sema(false,find_pinfo(false,&t->tid)));
+		sema_up(pinfo_sema(true,find_pinfo(false,&t->tid)));
+	}
+	*/
+	fd_exit();
+	sema_up(&t->sema);
 	process_exit ();
 #endif
 
@@ -307,8 +323,10 @@ thread_exit (void)
 	   and schedule another process.  That process will destroy us
 	   when it calls thread_schedule_tail(). */
 	intr_disable ();
-	list_remove (&thread_current()->allelem);
-	thread_current ()->status = THREAD_DYING;
+	while(!list_empty(&t -> donated_list))
+		list_remove(list_front(&t ->donated_list));
+	list_remove (&t->allelem);
+	t -> status = THREAD_DYING;
 	schedule ();
 	NOT_REACHED ();
 }
@@ -545,6 +563,12 @@ init_thread (struct thread *t, const char *name, int priority)
 
 	t->recent_cpu = running_thread() -> recent_cpu;
 	t->nice = running_thread() -> nice;
+#ifdef USERPROG
+	sema_init(&t->sema,0);
+	t->parent_thread = running_thread();
+	t->child_status = -1;
+	list_init(&t->file_list);
+#endif
 
 	t->lock_owner = NULL;
 	t->lock_donated = NULL;
@@ -661,7 +685,7 @@ allocate_tid (void)
 
 	return tid;
 }
-bool find_tid(tid_t target)
+struct thread * find_thread(tid_t target)
 {
 	struct thread *t = thread_current();
 	struct list_elem *temp=NULL;
@@ -670,6 +694,23 @@ bool find_tid(tid_t target)
 	{
 		t = list_entry(temp,struct thread,allelem);
 		if(t->tid == target)
+			return t;
+	}
+	return NULL;
+
+}
+bool find_thread_name(char *name)
+{
+	char str[16],*ptr;
+	struct thread *t =NULL;
+	struct list_elem *temp=NULL;
+
+	for(temp = list_front(&all_list);temp != list_end(&all_list) ; temp = list_next(temp))
+	{
+		t = list_entry(temp,struct thread,allelem);
+		strlcpy(str,t->name,sizeof str);
+		strtok_r(str," ",&ptr);
+		if(strcmp(str,name) == 0)
 			return true;
 	}
 	return false;

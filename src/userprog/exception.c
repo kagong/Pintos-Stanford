@@ -1,4 +1,5 @@
 #include "userprog/exception.h"
+#include "userprog/syscall.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include "userprog/gdt.h"
@@ -134,6 +135,7 @@ page_fault (struct intr_frame *f)
      See [IA32-v2a] "MOV--Move to/from Control Registers" and
      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
      (#PF)". */
+exit(-1);
   asm ("movl %%cr2, %0" : "=r" (fault_addr));
 
   /* Turn interrupts back on (they were only off so that we could
@@ -156,6 +158,7 @@ page_fault (struct intr_frame *f)
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
+
   kill (f);
 }
 

@@ -2,18 +2,76 @@
 #include <debug.h>
 #include "filesys/inode.h"
 #include "threads/malloc.h"
-
+#include <list.h>
+#include <string.h>
+#include "threads/synch.h"
+#include "threads/thread.h"
 /* An open file. */
-struct file 
+struct file
   {
     struct inode *inode;        /* File's inode. */
     off_t pos;                  /* Current position. */
     bool deny_write;            /* Has file_deny_write() been called? */
+	int fd;
+	char name[16];
+	struct list_elem elem;
   };
-
+static struct lock fd_lock;
 /* Opens a file for the given INODE, of which it takes ownership,
    and returns the new file.  Returns a null pointer if an
    allocation fails or if INODE is null. */
+void file_user_init(void)
+{
+	lock_init(&fd_lock);
+
+}
+const char* file_get_name(struct file *f)
+{
+	if(f==NULL)
+		return NULL;
+	return f->name;
+}
+struct file* file_set_name(struct file* f,char *name)
+{
+	if(f==NULL)
+		return NULL;
+	strlcpy(f->name,name,sizeof f->name);
+	return f;
+}
+int allocate_fd(void)
+{
+	static int next_fd = 2;
+	int fd;
+	lock_acquire(&fd_lock);
+	fd = next_fd++;
+	lock_release(&fd_lock);
+	return fd;
+}
+void fd_exit(void)
+{
+	struct thread *t=thread_current();
+	while(!list_empty(&t->file_list))
+		list_remove(list_front(&t->file_list));
+}
+int file_get_fd(struct file *f)
+{
+	return f->fd;
+}
+struct file * file_find_fd(int fd)
+{
+	struct thread *t=thread_current();
+	struct list_elem *temp=NULL;
+	struct file * f = NULL;
+	if(list_empty(&t->file_list))
+			return NULL;
+	for(temp = list_front(&t->file_list);temp != list_end(&t->file_list) ; temp = list_next(temp))
+	{
+		f = list_entry(temp,struct file,elem);
+		if(f->fd == fd)
+			return f;
+	}
+	return NULL;
+}
 struct file *
 file_open (struct inode *inode) 
 {
@@ -23,6 +81,8 @@ file_open (struct inode *inode)
       file->inode = inode;
       file->pos = 0;
       file->deny_write = false;
+	  list_push_back(&thread_current()->file_list,&file->elem);
+	  file -> fd = allocate_fd();
       return file;
     }
   else
@@ -47,6 +107,9 @@ file_close (struct file *file)
 {
   if (file != NULL)
     {
+		//---
+		list_remove(&file->elem);
+		//---
       file_allow_write (file);
       inode_close (file->inode);
       free (file); 

@@ -21,6 +21,7 @@ filesys_init (bool format)
   if (fs_device == NULL)
     PANIC ("No file system device found, can't initialize file system.");
 
+  file_user_init();
   inode_init ();
   free_map_init ();
 
@@ -73,7 +74,7 @@ filesys_open (const char *name)
     dir_lookup (dir, name, &inode);
   dir_close (dir);
 
-  return file_open (inode);
+  return file_set_name(file_open (inode),name);
 }
 
 /* Deletes the file named NAME.

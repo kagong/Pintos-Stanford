@@ -208,7 +208,8 @@ void pri_restore(struct lock *lock)
 	struct lock *temp=NULL;
 	struct thread *t=thread_current();
 	int pri;
-	list_remove(&lock->elem);
+	if(lock->elem.next != NULL)
+		list_remove(&lock->elem);
 	lock->elem.next=NULL;
 	lock->elem.prev=NULL;
 	if(list_empty(&t->donated_list))

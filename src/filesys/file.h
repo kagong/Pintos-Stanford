@@ -6,6 +6,15 @@
 struct inode;
 
 /* Opening and closing files. */
+void file_user_init(void);
+//const char* file_get_name(struct file *f);
+struct file* file_set_name(struct file* f,char *name);
+int allocate_fd(void);
+void fd_exit(void);
+
+int file_get_fd(struct file *);
+struct file * file_find_fd(int fd);
+
 struct file *file_open (struct inode *);
 struct file *file_reopen (struct file *);
 void file_close (struct file *);

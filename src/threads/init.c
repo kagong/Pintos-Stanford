@@ -143,8 +143,7 @@ main (void)
 
    The start and end of the BSS segment is recorded by the
    linker as _start_bss and _end_bss.  See kernel.lds. */
-static void
-bss_init (void) 
+static void bss_init (void) 
 {
   extern char _start_bss, _end_bss;
   memset (&_start_bss, 0, &_end_bss - &_start_bss);
