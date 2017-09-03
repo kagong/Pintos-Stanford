@@ -32,74 +32,40 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 //-----------------
-/*
-struct lock pid_lock;
 struct list process_list;
 struct process_info{
-	pid_t pid;
 	tid_t  tid;
-	struct semaphore load_sema;
-	struct semaphore wait_sema;
 	struct list_elem elem;
 	int status;
 };
 void user_process_init(void)
 {
-	lock_init(&pid_lock);
 	list_init(&process_list);
 }
-int allocate_pid(void)
-{
-	static pid_t next_pid=0;
-	pid_t pid;
-	lock_acquire(&pid_lock);
-	pid=next_pid++;
-	lock_release(&pid_lock);
-	return pid;
-}
-struct process_info* find_pinfo(bool is_pid,void* addr)
+struct process_info* find_pinfo(tid_t target)
 {
 	struct process_info *p = NULL;
 	struct list_elem *temp = NULL;
 	for(temp = list_front(&process_list);temp != list_end(&process_list) ;temp = list_next(temp))
 	{
 		p = list_entry(temp,struct process_info,elem);
-		if( (is_pid && p->pid ==*(pid_t*)addr) || (p->tid == *(tid_t*)addr) )
+		if( p->tid == target)
 			return p;
 	}
 	return NULL;
 
 }
-pid_t new_process_info(void)
+void new_process_info(void)
 {
 	struct process_info *p=calloc(1,sizeof *p);
-	p->pid = allocate_pid();
-	p->tid = -1;
-	sema_init(&p->load_sema,0);
-	sema_init(&p->wait_sema,0);
+	p->tid = thread_tid();
 	list_push_back(&process_list,&p->elem);
 	p->status = -1;
-	return p->pid;
-}
-struct semaphore* pinfo_sema(bool is_load,struct process_info *p)
-{
-	if(is_load)
-		return &p->load_sema;
-	else
-		return &p->wait_sema;
-}
-tid_t pinfo_tid(struct process_info *p)
-{
-	return p->tid;
-}
-pid_t pinfo_pid(struct process_info *p)
-{
-	return p->pid;
 }
 void pinfo_set_status(int status)
 {
 	tid_t tid = thread_tid();
-	find_pinfo(false,&tid)->status=status;
+	find_pinfo(tid)->status=status;
 }
 void free_pinfo()
 {
@@ -111,14 +77,11 @@ void free_pinfo()
 		free(p);
 	}
 }
-*/
 tid_t process_execute (const char *file_name) 
 {
 
 	char *fn_copy;
 	tid_t tid;
-	//pid_t pid;
-	//int prev;
 	/* Make a copy of FILE_NAME.
 	   Otherwise there's a race between the caller and load(). */
 	fn_copy = palloc_get_page (0);
@@ -126,18 +89,13 @@ tid_t process_execute (const char *file_name)
 		return TID_ERROR;
 	strlcpy (fn_copy, file_name, PGSIZE);
 
-//	pid = new_process_info();
-//	prev = thread_get_priority();
-//	thread_set_priority(PRI_MAX);
 
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-//	find_pinfo(true,&pid)->tid = tid;
 
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy); 
 
-//	thread_set_priority(prev);
 
 	return tid;
 }
@@ -150,9 +108,8 @@ start_process (void *file_name_)
 	char *file_name = file_name_;
 	struct intr_frame if_;
 	bool success;
-//	tid_t tid=thread_tid();
-//	struct process_info *p = find_pinfo(false,&tid);
 
+	new_process_info();
 	/* Initialize interrupt frame and load executable. */
 	memset (&if_, 0, sizeof if_);
 	if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -165,7 +122,6 @@ start_process (void *file_name_)
 	if (!success)
 		exit(-1);
 	sema_up(&thread_current()->sema);
-	//	  thread_exit ();
 	/* Start the user process by simulating a return from an
 	   interrupt, implemented by intr_exit (in
 	   threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -189,19 +145,21 @@ start_process (void *file_name_)
 process_wait (tid_t child_tid) 
 {
 	struct thread *t = find_thread(child_tid);
-//	struct process_info* p = find_pinfo(false,&child_tid);
-//printf("before \n");
-//	sema_down(&p->wait_sema);
-//printf("after \n");
-//	return p->status;
-	if(t != NULL)
+	struct process_info* p = NULL;
+	int retval = -1;
+	if(t != NULL )
 	{
 		sema_down(&t->sema);
 		if(thread_current()->pagedir == NULL)
 			sema_down(&t->sema);
-		return thread_current()->child_status;
 	}
-	return -1;
+	p = find_pinfo(child_tid);
+	if(p!=NULL)
+	{
+		retval =p->status;
+		p->status = -1;
+	}
+	return retval;
 }
 
 /* Free the current process's resources. */

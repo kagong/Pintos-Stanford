@@ -305,15 +305,8 @@ thread_exit (void)
 
 #ifdef USERPROG
 	//if thread is kernel thread process_info free
-	/*
-	if(t->pagedir == NULL)
+	if(t->pagedir == NULL && t != idle_thread)
 		free_pinfo();
-	else
-	{
-		sema_up(pinfo_sema(false,find_pinfo(false,&t->tid)));
-		sema_up(pinfo_sema(true,find_pinfo(false,&t->tid)));
-	}
-	*/
 	fd_exit();
 	sema_up(&t->sema);
 	process_exit ();
@@ -565,8 +558,6 @@ init_thread (struct thread *t, const char *name, int priority)
 	t->nice = running_thread() -> nice;
 #ifdef USERPROG
 	sema_init(&t->sema,0);
-	t->parent_thread = running_thread();
-	t->child_status = -1;
 	list_init(&t->file_list);
 #endif
 
