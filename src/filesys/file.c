@@ -49,9 +49,14 @@ int allocate_fd(void)
 }
 void fd_exit(void)
 {
+	struct file *f =NULL;
 	struct thread *t=thread_current();
 	while(!list_empty(&t->file_list))
-		list_remove(list_front(&t->file_list));
+	{
+		f = list_entry(list_front(&t->file_list),struct file,elem);
+		list_remove(&f->elem);
+		free(f);
+	}
 }
 int file_get_fd(struct file *f)
 {
@@ -107,9 +112,7 @@ file_close (struct file *file)
 {
   if (file != NULL)
     {
-		//---
 		list_remove(&file->elem);
-		//---
       file_allow_write (file);
       inode_close (file->inode);
       free (file); 

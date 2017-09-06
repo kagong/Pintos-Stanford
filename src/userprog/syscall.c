@@ -22,7 +22,6 @@ void
 syscall_init (void) 
 {
 
-	user_process_init();
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -100,6 +99,7 @@ void exit(int status)
 {
 	char *ptr;
 	printf("%s: exit(%d)\n",strtok_r(thread_name()," ",&ptr),status );
+//	printf("%s: exit(%d)\n",thread_name(),status );
 	pinfo_set_status(status);
 	thread_exit();
 }

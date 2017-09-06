@@ -3,8 +3,8 @@
 
 #include "threads/thread.h"
 
-void user_process_init(void);
 void pinfo_set_status(int status);
+void new_process_info(tid_t);
 void free_pinfo();
 tid_t process_execute (const char *file_name);
 int process_wait (tid_t);

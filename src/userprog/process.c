@@ -38,15 +38,13 @@ struct process_info{
 	struct list_elem elem;
 	int status;
 };
-void user_process_init(void)
-{
-	list_init(&process_list);
-}
-struct process_info* find_pinfo(tid_t target)
+struct process_info* find_pinfo(struct list *process_list,tid_t target)
 {
 	struct process_info *p = NULL;
 	struct list_elem *temp = NULL;
-	for(temp = list_front(&process_list);temp != list_end(&process_list) ;temp = list_next(temp))
+	if(list_empty(process_list))
+		return NULL;
+	for(temp = list_front(process_list);temp != list_end(process_list) ;temp = list_next(temp))
 	{
 		p = list_entry(temp,struct process_info,elem);
 		if( p->tid == target)
@@ -55,24 +53,25 @@ struct process_info* find_pinfo(tid_t target)
 	return NULL;
 
 }
-void new_process_info(void)
+void new_process_info(tid_t child_tid)
 {
 	struct process_info *p=calloc(1,sizeof *p);
-	p->tid = thread_tid();
-	list_push_back(&process_list,&p->elem);
+	p->tid = child_tid;
+	list_push_back(&thread_current()->child_list,&p->elem);
 	p->status = -1;
 }
 void pinfo_set_status(int status)
 {
 	tid_t tid = thread_tid();
-	find_pinfo(tid)->status=status;
+	find_pinfo(thread_parent_child_list(),tid)->status=status;
 }
 void free_pinfo()
 {
 	struct process_info *p;
-	while(!list_empty(&process_list))
+	struct list *process_list = &thread_current()->child_list;
+	while(!list_empty(process_list))
 	{
-		p = list_entry(list_front(&process_list),struct process_info,elem);
+		p = list_entry(list_front(process_list),struct process_info,elem);
 		list_remove(&p->elem);
 		free(p);
 	}
@@ -109,7 +108,7 @@ start_process (void *file_name_)
 	struct intr_frame if_;
 	bool success;
 
-	new_process_info();
+
 	/* Initialize interrupt frame and load executable. */
 	memset (&if_, 0, sizeof if_);
 	if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -153,7 +152,7 @@ process_wait (tid_t child_tid)
 		if(thread_current()->pagedir == NULL)
 			sema_down(&t->sema);
 	}
-	p = find_pinfo(child_tid);
+	p = find_pinfo(thread_child_list(),child_tid);
 	if(p!=NULL)
 	{
 		retval =p->status;
@@ -576,6 +575,7 @@ install_page (void *upage, void *kpage, bool writable)
 
 	/* Verify that there's not already a page at that virtual
 	   address, then map our page there. */
+
 	return (pagedir_get_page (t->pagedir, upage) == NULL
 			&& pagedir_set_page (t->pagedir, upage, kpage, writable));
 }

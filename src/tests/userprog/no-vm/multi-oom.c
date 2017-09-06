@@ -175,5 +175,6 @@ main (int argc, char *argv[])
     }
 
   return expected_depth;
+//	return 0;
 }
 // vim: sw=2

@@ -193,6 +193,12 @@ thread_create (const char *name, int priority,
 	/* Initialize thread. */
 	init_thread (t, name, priority);
 	tid = t->tid = allocate_tid ();
+	
+
+	#ifdef USERPROG
+		new_process_info(tid);
+	#endif
+	//insert: new_process_info(tid)
 
 	/* Prepare thread for first run by initializing its stack.
 	   Do this atomically so intermediate values for the 'stack' 
@@ -302,11 +308,8 @@ thread_exit (void)
 	ASSERT (!intr_context ());
 	struct thread *t = thread_current();
 	thread_set_priority(PRI_MAX);
-
 #ifdef USERPROG
-	//if thread is kernel thread process_info free
-	if(t->pagedir == NULL && t != idle_thread)
-		free_pinfo();
+	free_pinfo();
 	fd_exit();
 	sema_up(&t->sema);
 	process_exit ();
@@ -557,8 +560,10 @@ init_thread (struct thread *t, const char *name, int priority)
 	t->recent_cpu = running_thread() -> recent_cpu;
 	t->nice = running_thread() -> nice;
 #ifdef USERPROG
+	t->parent_tid = running_thread()->tid;
 	sema_init(&t->sema,0);
 	list_init(&t->file_list);
+	list_init(&t->child_list);
 #endif
 
 	t->lock_owner = NULL;
@@ -707,7 +712,16 @@ bool find_thread_name(char *name)
 	return false;
 
 }
-
+#ifdef USERPROG
+struct list * thread_child_list(void)
+{
+	return &thread_current()->child_list;
+}
+struct list * thread_parent_child_list(void)
+{
+	return &(find_thread(thread_current()->parent_tid)->child_list);
+}
+#endif
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);

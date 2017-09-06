@@ -106,8 +106,8 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-//	struct thread* parent_thread;
-//	int child_status;
+	struct list child_list;
+	tid_t parent_tid;
 	struct semaphore sema;
 	struct list file_list;
 #endif
@@ -159,4 +159,8 @@ void update_recent_cpu_and_load_avg(void);
 
 struct thread *find_thread(tid_t target);
 bool find_thread_name(char *name);
+#ifdef USERPROG
+struct list *thread_child_list(void);
+struct list *thread_parent_child_list(void);
+#endif
 #endif /* threads/thread.h */
